@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { VeritasWordmark } from "./Logo.jsx";
-import { shortenAddress } from "../lib/genlayer.js";
+import { AccountPanel } from "./wallet/AccountPanel.jsx";
 
 const LINKS = [
   { href: "#/", label: "Markets" },
@@ -33,16 +33,7 @@ export function Navbar({ route, wallet }) {
         </nav>
 
         <div className="navbar__actions">
-          {wallet.isConnected ? (
-            <button className="btn btn--ghost btn--sm navbar__wallet" onClick={wallet.disconnect}>
-              <span className="navbar__wallet-dot" />
-              {shortenAddress(wallet.address)}
-            </button>
-          ) : (
-            <button className="btn btn--primary btn--sm" onClick={wallet.connect} disabled={wallet.connecting}>
-              {wallet.connecting ? "Connecting…" : "Connect Wallet"}
-            </button>
-          )}
+          <AccountPanel wallet={wallet} />
           <button
             className="navbar__burger"
             aria-label="Toggle menu"

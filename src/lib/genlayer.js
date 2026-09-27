@@ -45,27 +45,30 @@ export function getExplorerContractUrl() {
 }
 
 // ---------------------------------------------------------------------------
-// Wallet discovery (EIP-1193, with basic multi-provider support)
+// Network / chain helpers (used by the wallet UI to show status + drive a
+// "switch network" action, independent of any particular provider)
 // ---------------------------------------------------------------------------
 
-function discoverProviders() {
-  if (typeof window === "undefined" || !window.ethereum) return [];
-  const injected = window.ethereum;
-  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
-    return injected.providers;
+export function getNetworkLabel() {
+  try {
+    const name = getConfig().chain;
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch {
+    return "the configured network";
   }
-  return [injected];
 }
 
-export function hasInjectedWallet() {
-  return discoverProviders().length > 0;
+function chainIdHexOf(chain) {
+  return `0x${chain.id.toString(16)}`;
 }
 
-function pickProvider() {
-  const providers = discoverProviders();
-  if (providers.length === 0) return null;
-  const metamask = providers.find((p) => p.isMetaMask);
-  return metamask || providers[0];
+export function isTargetChainId(idHex) {
+  try {
+    const chain = getChain();
+    return Boolean(idHex) && parseInt(String(idHex), 16) === chain.id;
+  } catch {
+    return false;
+  }
 }
 
 function walletErrorCode(err) {
@@ -74,42 +77,68 @@ function walletErrorCode(err) {
   return walletErrorCode(err.cause);
 }
 
-// Mirrors the network the wallet is on with the target GenLayer chain,
-// adding it first if the wallet has never seen it (studionet / testnets are
-// rarely pre-installed in a fresh MetaMask).
-async function ensureWalletNetwork(provider, chain) {
-  const chainIdHex = `0x${chain.id.toString(16)}`;
-  const current = String(await provider.request({ method: "eth_chainId" })).toLowerCase();
-  if (current === chainIdHex) return;
+export async function readChainId(provider) {
   try {
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
-    return;
-  } catch (err) {
-    const missing = walletErrorCode(err) === 4902 || /unrecognized|unknown chain|not added/i.test(String(err?.message || ""));
-    if (!missing) throw err;
+    return String(await provider.request({ method: "eth_chainId" }));
+  } catch {
+    return null;
   }
-  await provider.request({
-    method: "wallet_addEthereumChain",
-    params: [
-      {
-        chainId: chainIdHex,
-        chainName: chain.name,
-        rpcUrls: [...(chain.rpcUrls?.default?.http || [])],
-        nativeCurrency: chain.nativeCurrency,
-        blockExplorerUrls: chain.blockExplorers?.default?.url ? [chain.blockExplorers.default.url] : [],
-      },
-    ],
-  });
+}
+
+/**
+ * Switches the wallet to the configured GenLayer network, adding it first
+ * if the wallet has never seen it (studionet / testnets are rarely
+ * pre-installed in a fresh MetaMask). Returns true on success, false if the
+ * person rejected it or the wallet doesn't support the request — a failed
+ * switch never throws, it just leaves the caller to show a retry action.
+ */
+export async function switchToNetwork(provider) {
+  const chain = getChain();
+  if (isTargetChainId(await readChainId(provider))) return true;
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHexOf(chain) }],
+    });
+    return true;
+  } catch (err) {
+    const missing =
+      walletErrorCode(err) === 4902 ||
+      /unrecognized|unknown chain|not added/i.test(String(err?.message || ""));
+    if (!missing) return false;
+  }
+  try {
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: chainIdHexOf(chain),
+          chainName: chain.name,
+          rpcUrls: [...(chain.rpcUrls?.default?.http || [])],
+          nativeCurrency: chain.nativeCurrency,
+          blockExplorerUrls: chain.blockExplorers?.default?.url ? [chain.blockExplorers.default.url] : [],
+        },
+      ],
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Client management
+// Contract client management
 // ---------------------------------------------------------------------------
+//
+// Wallet *connection* (provider discovery, account/network state, the
+// connect modal) lives in hooks/hooks.js + lib/eip6963.js. This module only
+// owns the read client (account-free) and the wallet-bound write client,
+// which useWallet rebuilds via attachWalletClient()/detachWalletClient()
+// whenever the connected account or active provider changes.
 
 let readClient = null;
 let writeClient = null;
 let connectedAddress = null;
-let activeProvider = null;
 
 export function getReadClient() {
   if (!readClient) {
@@ -122,57 +151,23 @@ export function getConnectedAddress() {
   return connectedAddress;
 }
 
-export async function connectWallet() {
-  const provider = pickProvider();
-  if (!provider) {
-    throw new Error("No wallet extension detected. Install MetaMask (or another EIP-1193 wallet) to stake, create claims, or collect winnings.");
-  }
-  const accounts = await provider.request({ method: "eth_requestAccounts" });
-  if (!accounts || accounts.length === 0) {
-    throw new Error("Wallet connection was rejected.");
-  }
-  const address = accounts[0];
+export function attachWalletClient(provider, address) {
   const chain = getChain();
   const cfg = getConfig();
-
-  await ensureWalletNetwork(provider, chain);
-
   const client = createClient({ chain, account: address, provider });
   if (cfg.chain === "studionet") {
-    try {
-      await client.connect("studionet");
-    } catch (err) {
+    client.connect("studionet").catch((err) => {
       console.warn("[veritas] client.connect warning:", err);
-    }
+    });
   }
-
   writeClient = client;
   connectedAddress = address;
-  activeProvider = provider;
-
-  provider.on?.("accountsChanged", (next) => {
-    connectedAddress = next && next.length > 0 ? next[0] : null;
-    window.dispatchEvent(new CustomEvent("veritas:account-changed", { detail: connectedAddress }));
-  });
-  provider.on?.("chainChanged", () => {
-    window.dispatchEvent(new CustomEvent("veritas:chain-changed"));
-  });
-
-  return address;
+  return client;
 }
 
-export function disconnectWallet() {
-  if (activeProvider?.removeAllListeners) {
-    try {
-      activeProvider.removeAllListeners("accountsChanged");
-      activeProvider.removeAllListeners("chainChanged");
-    } catch {
-      /* best effort */
-    }
-  }
+export function detachWalletClient() {
   writeClient = null;
   connectedAddress = null;
-  activeProvider = null;
 }
 
 function requireWriteClient() {
