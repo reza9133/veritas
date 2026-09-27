@@ -117,7 +117,9 @@ mechanism, with the exact leader/validator source, on the in-app **How it works*
 | `resolve_claim(claim_id)` | Permissionless — triggers validator consensus |
 | `void_stale_claim(claim_id)` | Permissionless safety valve for stale/one-sided markets |
 | `claim_winnings(claim_id)` | Pull your payout once resolved |
-| `get_all_claims / get_claim / get_position / get_positions_for_address / get_dashboard_stats / get_protocol_policy` | Views |
+| `withdraw_treasury_fees()` | Owner-only — sweeps accrued protocol fees to the treasury address |
+| `set_protocol_fee_bps(new_fee_bps)` | Owner-only — adjusts the protocol fee, capped at `MAX_FEE_BPS` |
+| `get_all_claims / get_claim / get_claim_ids / get_position / get_positions_for_address / get_claim_stakers / get_dashboard_stats / get_protocol_policy` | Views |
 
 Full docstring-level detail is in the contract itself — it's short enough to read end to end.
 
