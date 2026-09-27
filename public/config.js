@@ -3,7 +3,7 @@
 // Cloudflare Pages serves it as a static file straight from /public.
 window.VERITAS_CONFIG = {
   // Fill in the address printed by `genlayer deploy` (see DEPLOY.md).
-  contractAddress: "0x0000000000000000000000000000000000000000",
+  contractAddress: "0xDE92Ca4CC9D21a3AA647Fe6267F32DA521ce6CE6",
 
   // "studionet" (default, hosted at studio.genlayer.com, zero setup) or
   // "testnetAsimov" / "testnetBradbury" if you move to a public testnet later.
