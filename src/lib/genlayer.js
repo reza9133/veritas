@@ -226,12 +226,39 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function pollUntilDecided(client, hash, { attempts = 200, intervalMs = 4000 } = {}) {
+// Bounds a single promise to `ms` — used below so one stalled network call
+// can never hang the whole polling loop (and therefore never hang the
+// `await submitTransaction(...)` callers like CreatePage.jsx sit behind).
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+async function pollUntilDecided(client, hash, { attempts = 200, intervalMs = 4000, requestTimeoutMs = 15000 } = {}) {
   let transientFailures = 0;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     let tx;
     try {
-      tx = await client.getTransaction({ hash });
+      // Each status check gets its own timeout — a single stalled RPC call
+      // now counts as a transient failure and gets retried/escalated,
+      // instead of leaving this await (and everything awaiting
+      // submitTransaction above it) hanging indefinitely.
+      tx = await withTimeout(
+        client.getTransaction({ hash }),
+        requestTimeoutMs,
+        "Timed out checking transaction status.",
+      );
       transientFailures = 0;
     } catch (err) {
       transientFailures += 1;
@@ -270,7 +297,11 @@ export async function submitTransaction(functionName, args = [], value = 0n) {
     consensusMaxRotations: 5,
   };
 
-  const txId = await client.writeContract(params);
+  const txId = await withTimeout(
+    client.writeContract(params),
+    5 * 60 * 1000,
+    "Timed out waiting for the wallet to sign and broadcast this transaction.",
+  );
   const tx = await pollUntilDecided(client, txId);
 
   const executionResult = tx.txExecutionResultName || "NOT_VOTED";
