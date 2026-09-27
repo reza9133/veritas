@@ -9,10 +9,15 @@ const DURATION_PRESETS = [
   { label: "30 days", hours: 720 },
 ];
 
+// Mirrors the contract's MIN/MAX_RESOLUTION_WINDOW_HOURS range (1 to 720
+// hours / 30 days) — keep the top end in sync if that constant ever changes.
 const WINDOW_PRESETS = [
   { label: "6 hours", hours: 6 },
   { label: "24 hours", hours: 24 },
   { label: "3 days", hours: 72 },
+  { label: "1 week", hours: 168 },
+  { label: "2 weeks", hours: 336 },
+  { label: "30 days", hours: 720 },
 ];
 
 export function CreatePage({ wallet, refresh, toast, policy }) {

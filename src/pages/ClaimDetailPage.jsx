@@ -12,7 +12,14 @@ import {
   derivePayoutAtto,
   isOneSidedStake,
 } from "../lib/format.js";
-import { isContractConfigured, readJson, submitTransaction, toAtto, getExplorerTxUrl } from "../lib/genlayer.js";
+import {
+  isContractConfigured,
+  readJson,
+  submitTransaction,
+  toAtto,
+  getExplorerTxUrl,
+  shortenAddress,
+} from "../lib/genlayer.js";
 
 function orbitStateFor(phase) {
   if (phase === "resolved-yes") return "resolved-yes";
@@ -26,6 +33,7 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId, policy }) {
 
   const [claim, setClaim] = useState(() => claims.find((c) => c.id === claimId) || null);
   const [position, setPosition] = useState(null);
+  const [stakers, setStakers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stakeSide, setStakeSide] = useState("YES");
   const [stakeAmount, setStakeAmount] = useState("1");
@@ -42,6 +50,13 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId, policy }) {
     try {
       const fresh = await readJson("get_claim", [claimId]);
       setClaim(fresh);
+      try {
+        const stakerList = await readJson("get_claim_stakers", [claimId]);
+        setStakers(Array.isArray(stakerList) ? stakerList : []);
+      } catch (err) {
+        console.error("[veritas] failed to load stakers:", err);
+        setStakers([]);
+      }
       if (wallet.address) {
         const pos = await readJson("get_position", [claimId, wallet.address]);
         setPosition(pos);
@@ -253,6 +268,21 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId, policy }) {
                   );
                 })}
               </ul>
+            </div>
+
+            <div className="card">
+              <h3 className="card__heading">Stakers ({stakers.length})</h3>
+              {stakers.length > 0 ? (
+                <ul className="staker-list">
+                  {stakers.map((address) => (
+                    <li key={address} className="staker-list__item mono" title={address}>
+                      {shortenAddress(address)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="action-panel__note">No stakes yet — be the first to back YES or NO.</p>
+              )}
             </div>
 
             {(phase === "resolved-yes" || phase === "resolved-no" || phase === "void") && (
