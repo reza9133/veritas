@@ -9,6 +9,7 @@ import {
   formatDate,
   formatGenFromAtto,
   derivePayoutAtto,
+  isOneSidedStake,
 } from "../lib/format.js";
 import { isContractConfigured, readJson, submitTransaction, toAtto, getExplorerTxUrl } from "../lib/genlayer.js";
 
@@ -137,7 +138,7 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
       await load();
       console.info("[veritas] resolve_claim tx:", getExplorerTxUrl(txId));
     } catch (err) {
-      toast(err?.message || "Resolution failed — the resolution window may still allow a retry.", "error");
+      toast(err?.message || "Resolution failed. If this claim never received stake on both sides, void it instead.", "error");
     } finally {
       setResolving(false);
     }
@@ -306,7 +307,20 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
                 </>
               )}
 
-              {phase === "awaiting" && (
+              {phase === "awaiting" && isOneSidedStake(claim) && (
+                <>
+                  <p className="action-panel__note">
+                    Staking closed with stake on only one side, so there's nothing for validators
+                    to adjudicate. This claim can be voided right away — no need to wait out the
+                    full resolution window.
+                  </p>
+                  <button className="btn btn--outline btn--lg form__submit" onClick={handleVoid} disabled={resolving}>
+                    {resolving ? "Voiding…" : "Void & enable refunds"}
+                  </button>
+                </>
+              )}
+
+              {phase === "awaiting" && !isOneSidedStake(claim) && (
                 <>
                   <p className="action-panel__note">
                     Staking is closed. Any wallet can now trigger validator consensus — the leader

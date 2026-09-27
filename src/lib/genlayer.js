@@ -216,7 +216,10 @@ export async function readJson(functionName, args = []) {
 // ---------------------------------------------------------------------------
 
 const TERMINAL_FAILURE_STATUSES = new Set(["UNDETERMINED", "CANCELED"]);
-const ACCEPTABLE_DECIDED_STATUSES = new Set(["ACCEPTED", "READY_TO_FINALIZE", "FINALIZED"]);
+// Real GenLayer transaction status names only — "READY_TO_FINALIZE" is not
+// a status the chain ever reports (finalization readiness is a lifecycle
+// *action*, not a status), so it never matched and was dead weight here.
+const ACCEPTABLE_DECIDED_STATUSES = new Set(["ACCEPTED", "FINALIZED"]);
 const GOOD_CONSENSUS_RESULTS = new Set(["AGREE", "MAJORITY_AGREE"]);
 
 function sleep(ms) {

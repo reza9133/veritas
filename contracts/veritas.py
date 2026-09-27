@@ -459,7 +459,7 @@ def _canonical_sources(sources_json: str) -> list:
     cleaned = []
     for item in parsed:
         url = _clean_limit(item, MAX_SOURCE_URL_LEN)
-        if not url.lower().startswith("https://"):
+        if not url.lower().startswith("https://") or len(url) <= len("https://"):
             raise gl.vm.UserError("Every source must be a public https:// URL")
         if url in cleaned:
             raise gl.vm.UserError("Duplicate source URL: " + url)
@@ -683,7 +683,13 @@ def _clean_string_list(value, maximum_items: int, maximum_length: int) -> list:
 
 
 def _is_address(value: str) -> bool:
-    return re.fullmatch(r"0x[0-9a-fA-F]{40}", str(value or "")) is not None
+    text = str(value or "")
+    if re.fullmatch(r"0x[0-9a-fA-F]{40}", text) is None:
+        return False
+    # Reject the zero address — it can never be a usable treasury recipient.
+    if int(text, 16) == 0:
+        return False
+    return True
 
 
 def _now_iso() -> str:

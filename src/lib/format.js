@@ -90,6 +90,17 @@ export function claimPhase(claim) {
   return "expired";
 }
 
+// Mirrors the contract's one-sided check in void_stale_claim / resolve_claim:
+// once staking has closed, a claim with stake on only one side (or neither)
+// can never be resolved and is immediately eligible to be voided — it does
+// not have to wait out the full resolution window like a normal "awaiting"
+// claim does.
+export function isOneSidedStake(claim) {
+  const yes = BigInt(claim.yesPoolAtto || "0");
+  const no = BigInt(claim.noPoolAtto || "0");
+  return yes <= 0n || no <= 0n;
+}
+
 export const PHASE_LABEL = {
   open: "Open for staking",
   awaiting: "Awaiting consensus",
