@@ -262,7 +262,8 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId, policy }) {
                   <div>
                     <h3 className="card__heading">Consensus report</h3>
                     <span className="resolution-report__meta">
-                      Resolved {formatDate(claim.resolvedAtUnix || claim.closesAtUnix)} · confidence {claim.confidence}%
+                      Resolved {formatDate(claim.resolvedAtUnix || claim.closesAtUnix)}
+                      {claim.rationale ? ` · confidence ${claim.confidence}%` : ""}
                     </span>
                   </div>
                 </div>

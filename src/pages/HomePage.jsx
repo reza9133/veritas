@@ -80,7 +80,12 @@ export function HomePage({ claims, stats, loading, loadError, refresh }) {
         <div className="container">
           <div className="stat-bar">
             <StatBlock value={stats ? Number(stats.totalClaims) : 0} label="Claims created" />
-            <StatBlock value={stats ? Number(stats.totalVolumeAtto) / 1e18 : 0} suffix=" GEN" label="Total volume" compact />
+            <StatBlock
+              value={stats ? Number(BigInt(stats.totalVolumeAtto || "0") / 10n ** 18n) : 0}
+              suffix=" GEN"
+              label="Total volume"
+              compact
+            />
             <StatBlock value={stats ? Number(stats.resolvedClaims) : 0} label="Resolved by consensus" />
             <StatBlock value={stats ? Number(stats.openClaims) : 0} label="Open right now" />
           </div>

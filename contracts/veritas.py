@@ -34,6 +34,14 @@ MIN_STAKE_ATTO = 10 ** 15  # 0.001 GEN
 MAX_FEE_BPS = 500  # 5% hard governance ceiling
 DEFAULT_FEE_BPS = 150  # 1.5%
 
+# Web accessibility of a given source can flap between two independent
+# fetches (rate limiting, transient geo-blocks, a slow load) even though
+# nothing about the underlying evidence changed. Demanding a byte-for-byte
+# match between the leader's and a validator's accessibility readings would
+# rotate the leader (or leave the claim Undetermined) over a single flaky
+# source, so a small amount of disagreement is tolerated instead.
+ACCESSIBILITY_MISMATCH_TOLERANCE = 1
+
 ALLOWED_ASSESSMENT_OUTCOMES = [OUTCOME_YES, OUTCOME_NO, OUTCOME_UNRESOLVED]
 
 
@@ -518,7 +526,11 @@ def _normalize_resolution(raw, sources: list, evidence: dict) -> dict:
         confidence = 0
     confidence = max(0, min(100, confidence))
 
-    if evidence["accessibleCount"] * 2 < len(sources):
+    # Require a strict majority of sources to be accessible before trusting
+    # a confident YES/NO. At an exact tie (accessible == half), evidence
+    # coverage is a coin flip, so that case is folded into UNRESOLVED too
+    # rather than only kicking in once accessibility falls below half.
+    if evidence["accessibleCount"] * 2 <= len(sources):
         outcome = OUTCOME_UNRESOLVED
         confidence = min(confidence, 40)
 
@@ -610,13 +622,23 @@ def _verification_accepts_report(leader: dict, verification, evidence: dict, sou
         return False
     if not _resolution_materially_valid(leader, sources):
         return False
-    if evidence["accessibleCount"] != leader.get("accessibleCount"):
+
+    leader_accessible_count = leader.get("accessibleCount")
+    if not isinstance(leader_accessible_count, int):
         return False
+    if abs(evidence["accessibleCount"] - leader_accessible_count) > ACCESSIBILITY_MISMATCH_TOLERANCE:
+        return False
+
     by_url = {item["url"]: item for item in evidence["sources"]}
+    mismatches = 0
     for assessment in leader.get("sourceAssessments", []):
         current = by_url.get(assessment.get("url", ""))
-        if current is None or bool(current.get("accessible")) != bool(assessment.get("accessible")):
+        if current is None:
             return False
+        if bool(current.get("accessible")) != bool(assessment.get("accessible")):
+            mismatches += 1
+            if mismatches > ACCESSIBILITY_MISMATCH_TOLERANCE:
+                return False
     return True
 
 
