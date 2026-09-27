@@ -1,0 +1,24 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Veritas logomark">
+  <defs>
+    <linearGradient id="petalVioletL" x1="32" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#5b21b6"/>
+    </linearGradient>
+    <linearGradient id="petalCyanL" x1="32" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="petalGoldL" x1="32" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M32,32 C20,26 16,12 32,4 C48,12 44,26 32,32 Z" fill="url(#petalVioletL)" transform="rotate(0 32 32)"/>
+  <path d="M32,32 C20,26 16,12 32,4 C48,12 44,26 32,32 Z" fill="url(#petalCyanL)" transform="rotate(120 32 32)"/>
+  <path d="M32,32 C20,26 16,12 32,4 C48,12 44,26 32,32 Z" fill="url(#petalGoldL)" transform="rotate(240 32 32)"/>
+
+  <circle cx="32" cy="32" r="6.4" fill="#ffffff"/>
+  <circle cx="32" cy="32" r="3.1" fill="#111827"/>
+  <circle cx="32" cy="32" r="1.5" fill="#ffffff"/>
+</svg>
