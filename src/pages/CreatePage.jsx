@@ -15,7 +15,11 @@ const WINDOW_PRESETS = [
   { label: "3 days", hours: 72 },
 ];
 
-export function CreatePage({ wallet, refresh, toast }) {
+export function CreatePage({ wallet, refresh, toast, policy }) {
+  // Read live from get_protocol_policy so this never drifts from the
+  // deployed contract's MAX_SOURCES constant; 5 is only the fallback while
+  // the first policy read is still in flight.
+  const maxSources = Number(policy?.maxSources || 5);
   const [title, setTitle] = useState("");
   const [statement, setStatement] = useState("");
   const [category, setCategory] = useState("CRYPTO");
@@ -30,7 +34,7 @@ export function CreatePage({ wallet, refresh, toast }) {
   }
 
   function addSource() {
-    setSources((current) => (current.length >= 5 ? current : [...current, ""]));
+    setSources((current) => (current.length >= maxSources ? current : [...current, ""]));
   }
 
   function removeSource(index) {
@@ -149,7 +153,7 @@ export function CreatePage({ wallet, refresh, toast }) {
           </div>
 
           <div className="field">
-            <span className="field__label">Evidence sources (1–5, public https:// URLs)</span>
+            <span className="field__label">Evidence sources (1–{maxSources}, public https:// URLs)</span>
             {sources.map((src, i) => (
               <div className="source-row" key={i}>
                 <input
@@ -165,7 +169,7 @@ export function CreatePage({ wallet, refresh, toast }) {
                 )}
               </div>
             ))}
-            {sources.length < 5 && (
+            {sources.length < maxSources && (
               <button type="button" className="btn btn--outline btn--sm" onClick={addSource}>
                 + Add source
               </button>

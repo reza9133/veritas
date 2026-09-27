@@ -8,6 +8,7 @@ import {
   formatCountdown,
   formatDate,
   formatGenFromAtto,
+  formatBps,
   derivePayoutAtto,
   isOneSidedStake,
 } from "../lib/format.js";
@@ -20,7 +21,7 @@ function orbitStateFor(phase) {
   return "idle";
 }
 
-export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
+export function ClaimDetailPage({ claims, wallet, toast, claimId, policy }) {
   useClockTick(1000);
 
   const [claim, setClaim] = useState(() => claims.find((c) => c.id === claimId) || null);
@@ -115,9 +116,17 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
       toast("Enter a stake amount greater than zero.", "error");
       return;
     }
+    const attoAmount = toAtto(stakeAmount);
+    // Mirrors the contract's own MIN_STAKE_ATTO check — read live from
+    // get_protocol_policy so this never drifts from the deployed value.
+    const minStakeAtto = BigInt(policy?.minStakeAtto || "0");
+    if (minStakeAtto > 0n && attoAmount < minStakeAtto) {
+      toast(`Minimum stake is ${formatGenFromAtto(minStakeAtto)} GEN.`, "error");
+      return;
+    }
     setStaking(true);
     try {
-      await submitTransaction("stake", [claimId, stakeSide], toAtto(stakeAmount));
+      await submitTransaction("stake", [claimId, stakeSide], attoAmount);
       toast(`Staked ${stakeAmount} GEN on ${stakeSide}.`, "success");
       await load();
     } catch (err) {
@@ -304,6 +313,13 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
                   <button className="btn btn--primary btn--lg form__submit" onClick={handleStake} disabled={staking}>
                     {staking ? "Staking…" : `Stake ${stakeAmount || 0} GEN on ${stakeSide}`}
                   </button>
+                  {policy && (
+                    <p className="action-panel__note">
+                      Min stake {formatGenFromAtto(policy.minStakeAtto)} GEN · protocol fee{" "}
+                      {formatBps(policy.protocolFeeBps)}, taken only from the winning side if this
+                      claim resolves.
+                    </p>
+                  )}
                 </>
               )}
 
@@ -394,7 +410,7 @@ export function ClaimDetailPage({ claims, wallet, toast, claimId }) {
               </div>
               <div className="side-meta__row">
                 <span>Protocol fee applied</span>
-                <span>{(Number(claim.feeBpsApplied || 0) / 100).toFixed(2)}%</span>
+                <span>{formatBps(claim.feeBpsApplied)}</span>
               </div>
             </div>
           </aside>

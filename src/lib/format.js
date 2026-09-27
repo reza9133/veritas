@@ -12,6 +12,19 @@ export function categoryMeta(category) {
   return CATEGORIES[category] || CATEGORIES.OTHER;
 }
 
+// Case-insensitive address comparison — 0x addresses from the chain and
+// from a connected wallet don't reliably share the same casing.
+export function sameAddress(a, b) {
+  return Boolean(a) && Boolean(b) && String(a).toLowerCase() === String(b).toLowerCase();
+}
+
+// Renders a basis-points value (as returned by the contract, e.g.
+// protocolFeeBps / maxFeeBps) as a percentage string, e.g. 150 -> "1.50%".
+export function formatBps(bps) {
+  const value = Number(bps || 0) / 100;
+  return `${value.toFixed(2)}%`;
+}
+
 export function formatGenFromAtto(atto, maxDecimals = 4) {
   let value;
   try {

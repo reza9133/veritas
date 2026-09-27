@@ -9,8 +9,13 @@ const LINKS = [
   { href: "#/how-it-works", label: "How it works" },
 ];
 
-export function Navbar({ route, wallet }) {
+export function Navbar({ route, wallet, isOwner = false }) {
   const [open, setOpen] = useState(false);
+
+  // Owner-only: only rendered once the connected wallet's address matches
+  // the contract's owner (from a live get_protocol_policy read), never a
+  // static role stored client-side.
+  const links = isOwner ? [...LINKS, { href: "#/admin", label: "Admin" }] : LINKS;
 
   return (
     <header className="navbar">
@@ -20,7 +25,7 @@ export function Navbar({ route, wallet }) {
         </a>
 
         <nav className={`navbar__links ${open ? "navbar__links--open" : ""}`}>
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}

@@ -7,8 +7,10 @@ import { ClaimDetailPage } from "./pages/ClaimDetailPage.jsx";
 import { CreatePage } from "./pages/CreatePage.jsx";
 import { PortfolioPage } from "./pages/PortfolioPage.jsx";
 import { HowItWorksPage } from "./pages/HowItWorksPage.jsx";
+import { AdminPage } from "./pages/AdminPage.jsx";
 import { useToasts, useWallet } from "./hooks/hooks.js";
 import { isContractConfigured, readJson } from "./lib/genlayer.js";
+import { sameAddress } from "./lib/format.js";
 
 function parseRoute(hash) {
   const clean = (hash || "#/").replace(/^#/, "") || "/";
@@ -18,6 +20,7 @@ function parseRoute(hash) {
   if (parts[0] === "create") return { name: "create" };
   if (parts[0] === "portfolio") return { name: "portfolio" };
   if (parts[0] === "how-it-works") return { name: "how-it-works" };
+  if (parts[0] === "admin") return { name: "admin" };
   return { name: "home" };
 }
 
@@ -25,6 +28,7 @@ export default function App() {
   const [hash, setHash] = useState(window.location.hash || "#/");
   const [claims, setClaims] = useState([]);
   const [stats, setStats] = useState(null);
+  const [policy, setPolicy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -47,12 +51,14 @@ export default function App() {
     }
     setLoadError(null);
     try {
-      const [claimsResult, statsResult] = await Promise.all([
+      const [claimsResult, statsResult, policyResult] = await Promise.all([
         readJson("get_all_claims"),
         readJson("get_dashboard_stats"),
+        readJson("get_protocol_policy"),
       ]);
       setClaims(Array.isArray(claimsResult) ? [...claimsResult].reverse() : []);
       setStats(statsResult);
+      setPolicy(policyResult);
     } catch (err) {
       console.error("[veritas] failed to load contract state:", err);
       setLoadError(err?.message || String(err));
@@ -68,17 +74,23 @@ export default function App() {
   const route = useMemo(() => parseRoute(hash), [hash]);
   const navRoute = route.name === "home" ? "#/" : `#/${route.name === "claim" ? "" : route.name}`;
 
-  const shared = { claims, stats, loading, loadError, refresh, wallet, toast: push };
+  // The contract owner is whoever `get_protocol_policy` reports as `owner` —
+  // never assumed, always read live off-chain state, so this tracks a
+  // transferred ownership (were that ever added) without a redeploy.
+  const isOwner = sameAddress(wallet.address, policy?.owner);
+
+  const shared = { claims, stats, policy, loading, loadError, refresh, wallet, toast: push };
 
   return (
     <div className="app-shell">
-      <Navbar route={navRoute} wallet={wallet} />
+      <Navbar route={navRoute} wallet={wallet} isOwner={isOwner} />
       <main className="app-main">
         {route.name === "home" && <HomePage {...shared} />}
         {route.name === "claim" && <ClaimDetailPage {...shared} claimId={route.id} />}
         {route.name === "create" && <CreatePage {...shared} />}
         {route.name === "portfolio" && <PortfolioPage {...shared} />}
         {route.name === "how-it-works" && <HowItWorksPage {...shared} />}
+        {route.name === "admin" && <AdminPage {...shared} isOwner={isOwner} />}
       </main>
       <Footer />
       <Toasts toasts={toasts} dismiss={dismiss} />
